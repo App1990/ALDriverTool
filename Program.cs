@@ -2,47 +2,41 @@
 //Console.WriteLine("Hello, World!");
 
 using System.Text;
+using System.Drawing;
+using QRCoder;
 using ConsoleTables;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using System.Drawing.Drawing2D;
+
+const string ClientID = "25dzX3vbYqktVxyX";
+
+const string QRCodeQueryUrl = "https://passport.aliyundrive.com/newlogin/qrcode/query.do?appName=aliyun_drive";
+const string QRCodeGenerateUrl = "https://passport.aliyundrive.com/newlogin/qrcode/generate.do?appName=aliyun_drive";
 
 const string UserGetUrl = "https://api.aliyundrive.com/v2/user/get";
+//const string TokenGetUrl = "https://api.aliyundrive.com/token/get";
+const string TokenRefleshUrl = "https://api.aliyundrive.com/token/refresh";
+
 const string FileListGetUrl = "https://api.aliyundrive.com/adrive/v3/file/list";
 const string FileRenameUrl = "https://api.aliyundrive.com/v3/file/update";
 
+
 string strAppPath = Environment.CurrentDirectory;
-string strAppConfigFileName = Path.Combine(strAppPath, "app_config.ini");
-string strAccessToken = File.Exists(strAppConfigFileName) ? File.ReadAllText(strAppConfigFileName) : "";
-
-bool blnRefleshToken = false;
-Dictionary<string, object> dict_UserInfo= new Dictionary<string, object>();
-
-do
-{
-    if (string.IsNullOrWhiteSpace(strAccessToken))
-    {
-        blnRefleshToken = true;
-        Console.WriteLine("请输入Access Token:");
-        strAccessToken = Console.ReadLine();
-    }
-
-    string strUserInfo = await GetUserAsync().ConfigureAwait(false);
-    dict_UserInfo = JsonConvert.DeserializeObject<Dictionary<string, object>>(strUserInfo);
-
-    if (dict_UserInfo == null || !dict_UserInfo.ContainsKey("default_drive_id"))
-    {
-        strAccessToken = "";
-        Console.WriteLine($"AccessTokenInvalid：{strUserInfo}");
-    }
-    else if(blnRefleshToken)
-        File.WriteAllText(strAppConfigFileName, strAccessToken);
-}
-while (string.IsNullOrWhiteSpace(strAccessToken));
+string strTokenFileName = Path.Combine(strAppPath, "Token.ini");
+Dictionary<string, object> dict_Token = new Dictionary<string, object>();
 
 
+if (!await AutoLoginAsync().ConfigureAwait(false))
+    Console.WriteLine("登录失败，请扫码登录：");
+
+QRCodeLoginAsync();
+
+Console.ReadLine();
+return;
 
 bool blnExitTool = false;
-string strDriveId = dict_UserInfo["default_drive_id"].ToString();
+string strDriveId = dict_Token["default_drive_id"].ToString();
 Dictionary<string, object> dict_FileList = new Dictionary<string, object>();
 
 Console.WriteLine("请选择操作：");
@@ -70,9 +64,9 @@ while (!blnExitTool)
             dict_FileList = JsonConvert.DeserializeObject<Dictionary<string, object>>(strFileList);
             if (dict_FileList == null || !dict_FileList.ContainsKey("items") || (dict_FileList["items"] as JArray).Count == 0)
                 Console.WriteLine($"未获取到任何文件：{strFileList}");
-            else 
+            else
             {
-                ConsoleTable consoleTable  = new ConsoleTable();
+                ConsoleTable consoleTable = new ConsoleTable();
                 consoleTable.Columns = new string[] { "文件ID", "文件名", "文件类型" };
                 JArray lst_Files = dict_FileList["items"] as JArray;
                 foreach (var item in lst_Files)
@@ -111,6 +105,160 @@ while (!blnExitTool)
 
 Console.ReadLine();
 
+#region-- AutoLoginAsync() 据上次登录的token尝试自动登录，失败后尝试用refresh_token获取新的token登录
+/// <summary>
+/// 据上次登录的token尝试自动登录，失败后尝试用refresh_token获取新的token登录
+/// </summary>
+async Task<bool> AutoLoginAsync()
+{
+    try
+    {
+        string strToken = File.Exists(strTokenFileName) ? File.ReadAllText(strTokenFileName) : "";
+
+        if (string.IsNullOrWhiteSpace(strToken)) return false;
+
+        dict_Token = JsonConvert.DeserializeObject<Dictionary<string, object>>(strToken);
+
+        if (dict_Token == null || !dict_Token.ContainsKey("access_token")) return false;
+
+        string strUserInfo = await GetUserAsync().ConfigureAwait(false);
+        Dictionary<string, object> dict_UserInfo = JsonConvert.DeserializeObject<Dictionary<string, object>>(strUserInfo);
+
+        // 根据access_token获取用户信息失败，尝试刷新token
+        if (dict_UserInfo == null || !dict_UserInfo.ContainsKey("user_id"))
+            return await RefleshTokenAsync(dict_Token["refresh_token"].ToString()).ConfigureAwait(false);
+
+        return true;
+    }
+    catch (Exception ex)
+    {
+        throw ex;
+    }
+}
+#endregion
+
+#region-- QRCodeLoginAsync() ALDrive API：二维码登录
+/// <summary>
+/// ALDrive API：二维码登录
+/// </summary>
+async void QRCodeLoginAsync()
+{
+    try
+    {
+        string strCodeContent = "";
+        using (HttpClient httpClient = new HttpClient())
+        {
+            httpClient.DefaultRequestHeaders.Add("Accept", "application/json, text/plain, */*");
+            strCodeContent = await httpClient.GetStringAsync(QRCodeGenerateUrl).ConfigureAwait(false);
+            /*
+            {
+            "content": {
+                "data": {
+                    "t": 1629444501720,
+                    "codeContent": "https://passport.aliyundrive.com/qrcodeCheck.htm?lgToken=1829abe3b951f1bfd689740e2f77ce40d_0000000&_from=havana",
+                    "ck": "16312a1540565cfd7782eb03cacc7e4a",
+                    "resultCode": 100
+                },
+                "status": 0,
+                "success": true
+            },
+            "hasError": false
+            }
+            */
+        }
+
+        Dictionary<string, object> dict_CodeContent = JsonConvert.DeserializeObject<Dictionary<string, object>>(strCodeContent);
+        if (dict_CodeContent == null || !dict_CodeContent.ContainsKey("hasError") || dict_CodeContent["hasError"].Equals(true)) return;
+
+        object data = (dict_CodeContent["content"] as JObject).ToObject<Dictionary<string, object>>()["data"];
+        string codeContent = (data as JObject).ToObject<Dictionary<string, object>>()["codeContent"].ToString();
+
+        PrintQRCode(codeContent);
+
+        /*bizExt = response.json()['content']['data']['bizExt']
+        bizExt = base64.b64decode(bizExt).decode('gb18030')
+        accessToken = json.loads(bizExt)['pds_login_result']['accessToken']*/
+    }
+    catch (Exception ex)
+    {
+        throw ex;
+    }
+}
+#endregion
+
+#region -- RefleshTokenAsync() ALDrive API：获取token
+/// <summary>
+/// ALDrive API：获取token
+/// </summary>
+async Task<bool> RefleshTokenAsync(string strRefleshToken)
+{
+    try
+    {
+        byte[] bytes = Encoding.UTF8.GetBytes("{\"refresh_token\":\"" + strRefleshToken + "\"}");
+        var byteContent = new ByteArrayContent(bytes);
+        byteContent.Headers.Add("Content-Type", "application/json;charset=UTF-8");
+
+        string strToken = "";
+        using (HttpClient httpClient = new HttpClient())
+        {
+            httpClient.DefaultRequestHeaders.Add("Accept", "application/json, text/plain, */*");
+            HttpResponseMessage httpResponseMessage = await httpClient.PostAsync(TokenRefleshUrl, byteContent).ConfigureAwait(false);
+
+            Stream stream = httpResponseMessage.Content.ReadAsStream();
+            StreamReader streamReader = new StreamReader(stream);
+
+            strToken = streamReader.ReadToEnd();
+        }
+
+        dict_Token = JsonConvert.DeserializeObject<Dictionary<string, object>>(strToken);
+
+        if (dict_Token == null || !dict_Token.ContainsKey("access_token")) return false;
+
+        File.WriteAllText(strTokenFileName, strToken);
+
+        return true;
+        /*
+        {
+        "default_sbox_drive_id": "2260661",
+        "role": "user",
+        "device_id": "4f0f773e0c784e0b9537669540504cde",
+        "user_name": "185***699",
+        "need_link": false,
+        "expire_time": "2021-08-20T03:09:49Z",
+        "pin_setup": true,
+        "need_rp_verify": false,
+        "avatar": "",
+        "user_data": {
+            "DingDingRobotUrl": "https://oapi.dingtalk.com/robot/send?access_token=0b4a936d0e98c08608cd99f693393c18fa905aa0868215485a28497501916fec",
+            "EncourageDesc": "内测期间有效反馈前10名用户将获得终身免费会员",
+            "FeedBackSwitch": true,
+            "FollowingDesc": "34848372",
+            "ding_ding_robot_url": "https://oapi.dingtalk.com/robot/send?access_token=0b4a936d0e98c08608cd99f693393c18fa905aa0868215485a28497501916fec",
+            "encourage_desc": "内测期间有效反馈前10名用户将获得终身免费会员",
+            "feed_back_switch": true,
+            "following_desc": "34848372"
+        },
+        "token_type": "Bearer",
+        "access_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI1Y2I5OTA3Mzk2NDg0NzNkOGY1NWYzZGMyMWRlNmVjMyIsImN1c3RvbUpzb24iOiJ7XCJjbGllbnRJZFwiOlwiMjVkelgzdmJZcWt0Vnh5WFwiLFwiZG9tYWluSWRcIjpcImJqMjlcIixcInNjb3BlXCI6W1wiRFJJVkUuQUxMXCIsXCJTSEFSRS5BTExcIixcIkZJTEUuQUxMXCIsXCJVU0VSLkFMTFwiLFwiU1RPUkFHRS5BTExcIixcIlNUT1JBR0VGSUxFLkxJU1RcIixcIkJBVENIXCIsXCJPQVVUSC5BTExcIixcIklNQUdFLkFMTFwiLFwiSU5WSVRFLkFMTFwiLFwiQUNDT1VOVC5BTExcIl0sXCJyb2xlXCI6XCJ1c2VyXCIsXCJyZWZcIjpcImh0dHBzOi8vd3d3LmFsaXl1bmRyaXZlLmNvbS9cIn0iLCJleHAiOjE2Mjk0Mjg5ODksImlhdCI6MTYyOTQyMTcyOX0.stREutxWPT_UoUbu7NMrTLutfZxyO2iv4js9Z6yBT1cbUo5k97EL-01-K5I6khUJcb3gjpaFddq25lBVygxUhP_tOeGIKEO55Yx3OIEPC8g3UU9T4rn670tjwdnLEmgCQ9rgHl9bx6pdY5OUlOa7zgbFTBS99laXBXiWPOlhrOM",
+        "default_drive_id": "2260660",
+        "refresh_token": "1ea92d6a04c84adb86137c08ae738891",
+        "is_first_login": false,
+        "user_id": "5cb990739648473d8f55f3dc21de6ec3",
+        "nick_name": "",
+        "exist_link": [],
+        "state": "",
+        "expires_in": 7200,
+        "status": "enabled"
+        }
+         */
+    }
+    catch (Exception ex)
+    {
+        throw ex;
+    }
+}
+#endregion
+
 #region-- GetUserAsync() ALDrive API：获取用户信息
 /// <summary>
 /// ALDrive API：获取用户信息
@@ -126,7 +274,7 @@ async Task<string> GetUserAsync()
         using (HttpClient httpClient = new HttpClient())
         {
             httpClient.DefaultRequestHeaders.Add("Accept", "application/json, text/plain, */*");
-            httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {strAccessToken}");
+            httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {dict_Token["access_token"]}");
 
             HttpResponseMessage httpResponseMessage = await httpClient.PostAsync(UserGetUrl, byteContent).ConfigureAwait(false);
 
@@ -186,7 +334,7 @@ async Task<string> GetFileListAsync(string strParentFileId = "root", string strN
         using (HttpClient httpClient = new HttpClient())
         {
             httpClient.DefaultRequestHeaders.Add("Accept", "application/json, text/plain, */*");
-            httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {strAccessToken}");
+            httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {dict_Token["access_token"]}");
 
             HttpResponseMessage httpResponseMessage = await httpClient.PostAsync(FileListGetUrl, byteContent).ConfigureAwait(false);
 
@@ -266,7 +414,7 @@ async Task<string> FileRenameAsync(string strFileId, string strFileName)
         using (HttpClient httpClient = new HttpClient())
         {
             httpClient.DefaultRequestHeaders.Add("Accept", "application/json, text/plain, */*");
-            httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {strAccessToken}");
+            httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {dict_Token["access_token"]}");
 
             HttpResponseMessage httpResponseMessage = await httpClient.PostAsync(FileRenameUrl, byteContent).ConfigureAwait(false);
 
@@ -308,6 +456,47 @@ async Task<string> FileRenameAsync(string strFileId, string strFileName)
     catch (Exception ex)
     {
         throw ex;
+    }
+}
+#endregion
+
+#region-- PrintQRCode()
+void PrintQRCode(string strCodeContent)
+{
+    Bitmap image = null;
+    QRCode qrCode = null;
+    QRCodeData qrCodeData = null;
+    QRCodeGenerator qrGenerator = null;
+    try
+    {
+        qrGenerator = new QRCodeGenerator();
+        qrCodeData = qrGenerator.CreateQrCode(strCodeContent, QRCodeGenerator.ECCLevel.M);
+        qrCode = new QRCode(qrCodeData);
+        image = qrCode.GetGraphic(1);
+
+        for (int y = 0; y < image.Height; ++y)
+        {
+            for (int x = 0; x < image.Width; ++x)
+            {
+                Console.BackgroundColor = image.GetPixel(x, y).B <= 180 ? ConsoleColor.White : ConsoleColor.Black;
+                Console.ForegroundColor = image.GetPixel(x, y).B <= 180 ? ConsoleColor.White : ConsoleColor.Black;
+                Console.Write("　");
+                Console.ResetColor();
+            }
+
+            Console.WriteLine();
+        }
+    }
+    catch (Exception ex)
+    {
+        throw ex;
+    }
+    finally
+    {
+        if (image != null) image.Dispose();
+        if (qrCode != null) qrCode.Dispose();
+        if (qrCodeData != null) qrCodeData.Dispose();
+        if (qrGenerator != null) qrGenerator.Dispose();
     }
 }
 #endregion
