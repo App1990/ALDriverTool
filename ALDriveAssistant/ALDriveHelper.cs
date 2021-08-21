@@ -220,7 +220,6 @@ namespace ALDriveAssistant
                     handler.CookieContainer = cookieContainer;
                     using (HttpClient httpClient = new HttpClient(handler))
                     {
-                        //httpClient.DefaultRequestHeaders.Add("Referer", strAuthorizeUrl);
                         httpClient.DefaultRequestHeaders.Add("Accept", "application/json, text/plain, */*");
                         httpClient.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.159 Safari/537.36");
                         HttpResponseMessage httpResponseMessage = await httpClient.PostAsync(TokenLoginUrl, byteContent).ConfigureAwait(false);

@@ -29,25 +29,14 @@ namespace ALDriveAssistant
         /// </summary>
         private void InitializeComponent()
         {
-            this.img__qr_code = new System.Windows.Forms.PictureBox();
             this.dataGrid__file_list = new System.Windows.Forms.DataGridView();
             this.file_type = new System.Windows.Forms.DataGridViewImageColumn();
             this.file_id = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.file_name = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.update_date = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.file_size = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            ((System.ComponentModel.ISupportInitialize)(this.img__qr_code)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.dataGrid__file_list)).BeginInit();
             this.SuspendLayout();
-            // 
-            // img__qr_code
-            // 
-            this.img__qr_code.Location = new System.Drawing.Point(351, 115);
-            this.img__qr_code.Name = "img__qr_code";
-            this.img__qr_code.Size = new System.Drawing.Size(200, 200);
-            this.img__qr_code.TabIndex = 0;
-            this.img__qr_code.TabStop = false;
-            this.img__qr_code.Visible = false;
             // 
             // dataGrid__file_list
             // 
@@ -62,14 +51,13 @@ namespace ALDriveAssistant
             this.file_name,
             this.update_date,
             this.file_size});
-            this.dataGrid__file_list.Location = new System.Drawing.Point(12, 12);
+            this.dataGrid__file_list.Location = new System.Drawing.Point(170, 140);
             this.dataGrid__file_list.Name = "dataGrid__file_list";
             this.dataGrid__file_list.ReadOnly = true;
             this.dataGrid__file_list.RowTemplate.Height = 25;
             this.dataGrid__file_list.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;
             this.dataGrid__file_list.Size = new System.Drawing.Size(863, 440);
             this.dataGrid__file_list.TabIndex = 1;
-            this.dataGrid__file_list.Visible = false;
             // 
             // file_type
             // 
@@ -112,20 +100,16 @@ namespace ALDriveAssistant
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 17F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(888, 464);
-            this.Controls.Add(this.img__qr_code);
+            this.ClientSize = new System.Drawing.Size(1264, 761);
             this.Controls.Add(this.dataGrid__file_list);
             this.Name = "ALDriveAssistant";
             this.Text = "ALDriveAssistant";
-            ((System.ComponentModel.ISupportInitialize)(this.img__qr_code)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.dataGrid__file_list)).EndInit();
             this.ResumeLayout(false);
 
         }
 
         #endregion
-
-        private System.Windows.Forms.PictureBox img__qr_code;
         private System.Windows.Forms.DataGridView dataGrid__file_list;
         private System.Windows.Forms.DataGridViewImageColumn file_type;
         private System.Windows.Forms.DataGridViewTextBoxColumn file_id;
