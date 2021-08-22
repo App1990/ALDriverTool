@@ -425,7 +425,7 @@ namespace ALDriveAssistant
         {
             try
             {
-                string requestContent = "{\"drive_id\":\"\",\"parent_file_id\":\"\",\"limit\":100,\"all\":false,\"url_expire_sec\":1600,\"image_thumbnail_process\":\"image/resize,w_400/format,jpeg\",\"image_url_process\":\"image/resize,w_1920/format,jpeg\",\"video_thumbnail_process\":\"video/snapshot,t_0,f_jpg,ar_auto,w_300\",\"fields\":\"*\",\"order_by\":\"updated_at\",\"order_direction\":\"DESC\"}";
+                string requestContent = "{\"drive_id\":\"\",\"parent_file_id\":\"\",\"limit\":100,\"all\":false,\"url_expire_sec\":1600,\"image_thumbnail_process\":\"image/resize,w_400/format,jpeg\",\"image_url_process\":\"image/resize,w_1920/format,jpeg\",\"video_thumbnail_process\":\"video/snapshot,t_0,f_jpg,ar_auto,w_300\",\"fields\":\"*\",\"order_by\":\"name\",\"order_direction\":\"ASC\"}";
 
                 Dictionary<string, object> dict_RequestContent = JsonConvert.DeserializeObject<Dictionary<string, object>>(requestContent);
                 dict_RequestContent["drive_id"] = dict_Token["default_drive_id"];

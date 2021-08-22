@@ -177,6 +177,7 @@ namespace ALDriveAssistant
                 Hide();
                 assistant.ShowDialog();
                 Application.ExitThread();
+                Close();
             }
             catch (Exception ex)
             {
@@ -189,6 +190,7 @@ namespace ALDriveAssistant
         {
             try
             {
+                MessageBox.Show("to do", "Info", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
