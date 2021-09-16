@@ -1,13 +1,18 @@
 ﻿// See https://aka.ms/new-console-template for more information
 //Console.WriteLine("Hello, World!");
 
+using System;
+using System.IO;
 using System.Text;
 using System.Drawing;
+using System.Net.Http;
+using System.Threading.Tasks;
+using System.Collections.Generic;
+
 using QRCoder;
 using ConsoleTables;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using System.Drawing.Drawing2D;
 
 const string ClientID = "25dzX3vbYqktVxyX";
 

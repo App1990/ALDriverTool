@@ -1,15 +1,15 @@
-﻿using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
-using QRCoder;
-using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
-using System.Drawing;
-using System.Linq;
+﻿using System;
+using System.IO;
 using System.Text;
+using System.Drawing;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using System.Collections.Generic;
+
+using QRCoder;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace ALDriveAssistant
 {

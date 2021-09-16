@@ -1,17 +1,15 @@
 ﻿using System;
 using System.Data;
 using System.Linq;
-using System.Text;
 using System.Drawing;
-using System.Windows.Forms;
-using System.ComponentModel;
+using System.Threading;
 using System.Threading.Tasks;
+using System.Windows.Forms;
 using System.Collections.Generic;
+using System.Text.RegularExpressions;
 
-using QRCoder;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using System.Text.RegularExpressions;
 
 namespace ALDriveAssistant
 {

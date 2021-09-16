@@ -1,12 +1,11 @@
 ﻿using System;
-using System.Linq;
+using System.IO;
+using System.Net;
 using System.Text;
-using System.Drawing;
+using System.Net.Http;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 
-using QRCoder;
-using System.Net;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Microsoft.AspNetCore.WebUtilities;
