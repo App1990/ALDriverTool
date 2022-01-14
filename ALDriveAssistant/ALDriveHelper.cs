@@ -29,16 +29,32 @@ namespace ALDriveAssistant
         const string FileListGetUrl = "https://api.aliyundrive.com/adrive/v3/file/list";
         const string FileRenameUrl = "https://api.aliyundrive.com/v3/file/update";
 
+
         JObject data;
         string strTokenFileName;
-        CookieContainer cookieContainer = new CookieContainer();
+        HttpClient httpClient = null;
+        HttpClientHandler httpClientHandler = null;
         Dictionary<string, object> dict_Token = new Dictionary<string, object>();
 
         public Dictionary<string, object> SetToken { set { dict_Token = value; }  }
 
+
         public ALDriveHelper()
         {
+            httpClientHandler = new HttpClientHandler();
+            httpClientHandler.CookieContainer = new CookieContainer();
+
+            httpClient = new HttpClient(httpClientHandler);
+            httpClient.DefaultRequestHeaders.Add("Accept", "application/json, text/plain, */*");
+            httpClient.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.159 Safari/537.36");
+
             strTokenFileName = Path.Combine(Environment.CurrentDirectory, "Token.json");
+        }
+
+        ~ALDriveHelper()
+        {
+            if (httpClient != null) httpClient.Dispose();
+            if (httpClientHandler != null) httpClientHandler.Dispose();
         }
 
         #region-- Authorize() ALDrive API：Authorize
@@ -55,17 +71,9 @@ namespace ALDriveAssistant
                 strAuthorizeUrl = QueryHelpers.AddQueryString(strAuthorizeUrl, "client_id", ClientID);
                 strAuthorizeUrl = QueryHelpers.AddQueryString(strAuthorizeUrl, "state", "{\"origin\":\"https://www.aliyundrive.com\"}");
 
-                using (HttpClientHandler handler = new HttpClientHandler())
-                {
-                    handler.CookieContainer = cookieContainer;
-                    using (HttpClient httpClient = new HttpClient(handler))
-                    {
-                        httpClient.DefaultRequestHeaders.Add("Accept", "application/json, text/plain, */*");
-                        httpClient.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.159 Safari/537.36");
+                HttpRequestMessage requestMessage = new HttpRequestMessage(HttpMethod.Get, strAuthorizeUrl);
 
-                        return await httpClient.GetStringAsync(strAuthorizeUrl).ConfigureAwait(false);
-                    }
-                }
+                return httpClient.SendAsync(requestMessage).Result.Content.ReadAsStringAsync().Result;
             }
             catch (Exception ex)
             {
@@ -114,31 +122,24 @@ namespace ALDriveAssistant
         {
             try
             {
-                string strCodeContent = "";
-                using (HttpClientHandler handler = new HttpClientHandler())
+                /*
                 {
-                    handler.CookieContainer = cookieContainer;
-                    using (HttpClient httpClient = new HttpClient(handler))
-                    {
-                        httpClient.DefaultRequestHeaders.Add("Accept", "application/json, text/plain, */*");
-                        strCodeContent = await httpClient.GetStringAsync(QRCodeGenerateUrl).ConfigureAwait(false);
-                        /*
-                        {
-                        "content": {
-                            "data": {
-                                "t": 1629444501720,
-                                "codeContent": "https://passport.aliyundrive.com/qrcodeCheck.htm?lgToken=1829abe3b951f1bfd689740e2f77ce40d_0000000&_from=havana",
-                                "ck": "16312a1540565cfd7782eb03cacc7e4a",
-                                "resultCode": 100
-                            },
-                            "status": 0,
-                            "success": true
-                        },
-                        "hasError": false
-                        }
-                        */
-                    }
+                "content": {
+                    "data": {
+                        "t": 1629444501720,
+                        "codeContent": "https://passport.aliyundrive.com/qrcodeCheck.htm?lgToken=1829abe3b951f1bfd689740e2f77ce40d_0000000&_from=havana",
+                        "ck": "16312a1540565cfd7782eb03cacc7e4a",
+                        "resultCode": 100
+                    },
+                    "status": 0,
+                    "success": true
+                },
+                "hasError": false
                 }
+                */
+
+                HttpRequestMessage requestMessage = new HttpRequestMessage(HttpMethod.Get, QRCodeGenerateUrl);
+                string strCodeContent = httpClient.SendAsync(requestMessage).Result.Content.ReadAsStringAsync().Result;
 
                 Dictionary<string, object> dict_CodeContent = JsonConvert.DeserializeObject<Dictionary<string, object>>(strCodeContent);
                 if (dict_CodeContent == null || !dict_CodeContent.ContainsKey("hasError") || dict_CodeContent["hasError"].Equals(true)) return "";
@@ -170,22 +171,10 @@ namespace ALDriveAssistant
                 var byteContent = new ByteArrayContent(bytes);
                 byteContent.Headers.Add("Content-Type", "application/x-www-form-urlencoded");
 
-                using (HttpClientHandler handler = new HttpClientHandler())
-                {
-                    handler.CookieContainer = cookieContainer;
-                    using (HttpClient httpClient = new HttpClient(handler))
-                    {
-                        httpClient.DefaultRequestHeaders.Add("Accept", "application/json, text/plain, */*");
-                        httpClient.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.159 Safari/537.36");
+                HttpRequestMessage requestMessage = new HttpRequestMessage(HttpMethod.Post, QRCodeQueryUrl);
+                requestMessage.Content = byteContent;
 
-                        HttpResponseMessage httpResponseMessage = await httpClient.PostAsync(QRCodeQueryUrl, byteContent).ConfigureAwait(false);
-
-                        Stream stream = httpResponseMessage.Content.ReadAsStream();
-                        StreamReader streamReader = new StreamReader(stream);
-
-                        return streamReader.ReadToEnd();
-                    }
-                }
+                return httpClient.SendAsync(requestMessage).Result.Content.ReadAsStringAsync().Result;
 
                 /*
                  {"content":{"data":{"qrCodeStatus":"NEW","resultCode":100},"status":0,"success":true},"hasError":false}
@@ -213,23 +202,10 @@ namespace ALDriveAssistant
                 var byteContent = new ByteArrayContent(bytes);
                 byteContent.Headers.Add("Content-Type", "application/json;charset=UTF-8");
 
-                string strGoTo = "";
-                using (HttpClientHandler handler = new HttpClientHandler())
-                {
-                    handler.CookieContainer = cookieContainer;
-                    using (HttpClient httpClient = new HttpClient(handler))
-                    {
-                        httpClient.DefaultRequestHeaders.Add("Accept", "application/json, text/plain, */*");
-                        httpClient.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.159 Safari/537.36");
-                        HttpResponseMessage httpResponseMessage = await httpClient.PostAsync(TokenLoginUrl, byteContent).ConfigureAwait(false);
+                HttpRequestMessage requestMessage = new HttpRequestMessage(HttpMethod.Post, TokenLoginUrl);
+                requestMessage.Content = byteContent;
 
-                        Stream stream = httpResponseMessage.Content.ReadAsStream();
-                        StreamReader streamReader = new StreamReader(stream);
-
-                        strGoTo = streamReader.ReadToEnd();
-                    }
-                }
-
+                string strGoTo = httpClient.SendAsync(requestMessage).Result.Content.ReadAsStringAsync().Result;
                 Dictionary<string, object> dict_GoTo = JsonConvert.DeserializeObject<Dictionary<string, object>>(strGoTo);
                 if (dict_GoTo == null || !dict_GoTo.ContainsKey("goto")) throw new Exception("登录失败！");
 
@@ -258,21 +234,10 @@ namespace ALDriveAssistant
                 var byteContent = new ByteArrayContent(bytes);
                 byteContent.Headers.Add("Content-Type", "application/json;charset=UTF-8");
 
-                using (HttpClientHandler handler = new HttpClientHandler())
-                {
-                    handler.CookieContainer = cookieContainer;
-                    using (HttpClient httpClient = new HttpClient(handler))
-                    {
-                        httpClient.DefaultRequestHeaders.Add("Accept", "application/json, text/plain, */*");
-                        httpClient.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.159 Safari/537.36");
-                        HttpResponseMessage httpResponseMessage = await httpClient.PostAsync(TokenGetUrl, byteContent).ConfigureAwait(false);
+                HttpRequestMessage requestMessage = new HttpRequestMessage(HttpMethod.Post, TokenGetUrl);
+                requestMessage.Content = byteContent;
 
-                        Stream stream = httpResponseMessage.Content.ReadAsStream();
-                        StreamReader streamReader = new StreamReader(stream);
-
-                        return streamReader.ReadToEnd();
-                    }
-                }
+                return httpClient.SendAsync(requestMessage).Result.Content.ReadAsStringAsync().Result;
             }
             catch (Exception ex)
             {
@@ -293,22 +258,10 @@ namespace ALDriveAssistant
                 var byteContent = new ByteArrayContent(bytes);
                 byteContent.Headers.Add("Content-Type", "application/json;charset=UTF-8");
 
-                string strToken = "";
-                using (HttpClientHandler handler = new HttpClientHandler())
-                {
-                    handler.CookieContainer = cookieContainer;
-                    using (HttpClient httpClient = new HttpClient(handler))
-                    {
-                        httpClient.DefaultRequestHeaders.Add("Accept", "application/json, text/plain, */*");
-                        httpClient.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.159 Safari/537.36");
-                        HttpResponseMessage httpResponseMessage = await httpClient.PostAsync(TokenRefleshUrl, byteContent).ConfigureAwait(false);
+                HttpRequestMessage requestMessage = new HttpRequestMessage(HttpMethod.Post, TokenRefleshUrl);
+                requestMessage.Content = byteContent;
 
-                        Stream stream = httpResponseMessage.Content.ReadAsStream();
-                        StreamReader streamReader = new StreamReader(stream);
-
-                        strToken = streamReader.ReadToEnd();
-                    }
-                }
+                string strToken = httpClient.SendAsync(requestMessage).Result.Content.ReadAsStringAsync().Result;
 
                 dict_Token = JsonConvert.DeserializeObject<Dictionary<string, object>>(strToken);
 
@@ -371,22 +324,11 @@ namespace ALDriveAssistant
                 var byteContent = new ByteArrayContent(bytes);
                 byteContent.Headers.Add("Content-Type", "application/json;charset=UTF-8");
 
-                using (HttpClientHandler handler = new HttpClientHandler())
-                {
-                    handler.CookieContainer = cookieContainer;
-                    using (HttpClient httpClient = new HttpClient(handler))
-                    {
-                        httpClient.DefaultRequestHeaders.Add("Accept", "application/json, text/plain, */*");
-                        httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {dict_Token["access_token"]}");
+                HttpRequestMessage requestMessage = new HttpRequestMessage(HttpMethod.Post, UserGetUrl);
+                requestMessage.Content = byteContent;
+                requestMessage.Headers.Add("Authorization", $"Bearer {dict_Token["access_token"]}");
 
-                        HttpResponseMessage httpResponseMessage = await httpClient.PostAsync(UserGetUrl, byteContent).ConfigureAwait(false);
-
-                        Stream stream = httpResponseMessage.Content.ReadAsStream();
-                        StreamReader streamReader = new StreamReader(stream);
-
-                        return streamReader.ReadToEnd();
-                    }
-                }
+                return httpClient.SendAsync(requestMessage).Result.Content.ReadAsStringAsync().Result;
 
                 /*
                  {
@@ -435,22 +377,11 @@ namespace ALDriveAssistant
                 var byteContent = new ByteArrayContent(bytes);
                 byteContent.Headers.Add("Content-Type", "application/json;charset=UTF-8");
 
-                using (HttpClientHandler handler = new HttpClientHandler())
-                {
-                    handler.CookieContainer = cookieContainer;
-                    using (HttpClient httpClient = new HttpClient(handler))
-                    {
-                        httpClient.DefaultRequestHeaders.Add("Accept", "application/json, text/plain, */*");
-                        httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {dict_Token["access_token"]}");
+                HttpRequestMessage requestMessage = new HttpRequestMessage(HttpMethod.Post, FileListGetUrl);
+                requestMessage.Content = byteContent;
+                requestMessage.Headers.Add("Authorization", $"Bearer {dict_Token["access_token"]}");
 
-                        HttpResponseMessage httpResponseMessage = await httpClient.PostAsync(FileListGetUrl, byteContent).ConfigureAwait(false);
-
-                        Stream stream = httpResponseMessage.Content.ReadAsStream();
-                        StreamReader streamReader = new StreamReader(stream);
-
-                        return streamReader.ReadToEnd();
-                    }
-                }
+                return httpClient.SendAsync(requestMessage).Result.Content.ReadAsStringAsync().Result;
 
                 /*
                 {
@@ -519,22 +450,11 @@ namespace ALDriveAssistant
                 var byteContent = new ByteArrayContent(bytes);
                 byteContent.Headers.Add("Content-Type", "application/json;charset=UTF-8");
 
-                using (HttpClientHandler handler = new HttpClientHandler())
-                {
-                    handler.CookieContainer = cookieContainer;
-                    using (HttpClient httpClient = new HttpClient(handler))
-                    {
-                        httpClient.DefaultRequestHeaders.Add("Accept", "application/json, text/plain, */*");
-                        httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {dict_Token["access_token"]}");
+                HttpRequestMessage requestMessage = new HttpRequestMessage(HttpMethod.Post, FileRenameUrl);
+                requestMessage.Content = byteContent;
+                requestMessage.Headers.Add("Authorization", $"Bearer {dict_Token["access_token"]}");
 
-                        HttpResponseMessage httpResponseMessage = await httpClient.PostAsync(FileRenameUrl, byteContent).ConfigureAwait(false);
-
-                        Stream stream = httpResponseMessage.Content.ReadAsStream();
-                        StreamReader streamReader = new StreamReader(stream);
-
-                        return streamReader.ReadToEnd();
-                    }
-                }
+                return httpClient.SendAsync(requestMessage).Result.Content.ReadAsStringAsync().Result;
 
                 /*
                  {
